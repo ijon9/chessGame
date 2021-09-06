@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<!-- <htmllang="en"> -->
+
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <metacharset="UTF-8">
+            <title>Chess</title>
+            <style>
+                canvas {
+                    border: 20px solid #593d12;
+                    align-items: center;
+                }
+            </style>
+    </head>
+
+    <body onload="startGame()">
+        <script>
+            // Pieces
+            var whitePieces = new Array;
+            var blackPieces = new Array;
+            // Kings
+            var whiteKing;
+            var blackKing;
+            // Current state
+            var moves = new Array; // Square that the current piece can go to
+            var whiteTurn = true;
+            var currPiece = null;
+            // Pawn promotion
+            var promotion = false;
+            var currPawn = null;
+            // Canvas context
+            var ctx;
+            // Image rendering flag
+            var firstLoad = 0;
+            // Images
+            var images = new Array;
+            // Variable to hold a pawn that just moved two squares
+            var enpassant = null;
+
+            function startGame() {
+                myGameArea.start();
+            }
+            
+            var myGameArea = {
+                canvas: document.createElement("canvas"),
+                start: function () {
+                    // 0,90,180,270,360,450,540,630,720
+                    this.canvas.width = 720;
+                    this.canvas.height = 720;
+                    ctx = this.canvas.getContext("2d");
+                    document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+                    // Populates chess board with pieces
+                    // Back-rank pieces
+                    for(var black=0; black<=1; black++) {
+                        var curr = "R";
+                        var row = (black==0 ? 75 : 705);
+                        var left=15, right=645;
+                        for(; left<285; left+=90) {
+                            if(black == 0) {
+                                blackPieces.push(new piece(left, row, curr, "black"));
+                                blackPieces.push(new piece(right, row, curr, "black"));
+                            }
+                            else {
+                                whitePieces.push(new piece(left, row, curr, "white"));
+                                whitePieces.push(new piece(right, row, curr, "white"));
+                            }
+                            right -= 90;
+                            curr = (curr == "R" ? "N" : "B");
+                        }
+                    }
+                    // King and Queen
+                    for(var black=0; black<=1; black++) {
+                        var row = (black==0 ? 75 : 705);
+                        if(black == 0) {
+                            blackPieces.push(new piece(285,row,"Q","black"));
+                            blackPieces.push(new piece(375,row,"K","black"));
+                            blackKing = blackPieces[blackPieces.length-1];
+                        }
+                        else {
+                            whitePieces.push(new piece(285,row,"Q","white"));
+                            whitePieces.push(new piece(375,row,"K","white"));
+                            whiteKing = whitePieces[whitePieces.length-1];
+                        }
+                    }
+                    // Pawns
+                    for(var black=0; black<=1; black++) {
+                        var row = (black==0 ? 165 : 615);
+                        for(var col=15; col<735; col+=90) {
+                            if(black == 0) {
+                                blackPieces.push(new piece(col,row,"P","black"));
+                            }
+                            else {
+                                whitePieces.push(new piece(col, row, "P", "white"));
+                            }
+                        }
+                    }
+                    loadImages();
+                    drawBoard();
+                },
+                clear: function () {
+                    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+            }
+
+            // Saves the images used for the chess pieces into an array
+            function loadImages() {
+                // White pieces
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhitePawn.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhitePawn2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhitePawnSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteKnight.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteKnight2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteKnightSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteBishop.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteBishop2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteBishopSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteRook.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteRook2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteRookSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteQueen.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteQueen2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteQueenSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteKing.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteKing2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteKingSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/WhitePieces/WhiteKingCheck.png";
+                // Black pieces
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackPawn.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackPawn2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackPawnSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackKnight.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackKnight2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackKnightSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackBishop.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackBishop2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackBishopSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackRook.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackRook2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackRookSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackQueen.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackQueen2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackQueenSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackKing.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackKing2.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackKingSelected.png";
+                images.push(new Image());
+                images[images.length-1].src = "chessPieces/BlackPieces/BlackKingCheck.png";
+            }
+
+            // Draw chess board
+            function drawBoard() {
+                // Draws the chess board and iterates
+                // through the pieces and moves to draw them
+                // Creates chess board
+                ctx.fillStyle = "#b5781b";
+                for(var row=0; row<8; row++) {
+                    var col = (row%2==0 ? 90 : 0);
+                    for(; col<720; col+=180) {
+                        ctx.fillRect(row*90, col, 90, 90);
+                    }
+                }
+                // Draws pieces and moves
+                for(let i=0; i<blackPieces.length; i++) {
+                    draw(blackPieces[i]);
+                }
+                for(let i=0; i<whitePieces.length; i++) {
+                    draw(whitePieces[i]);
+                }
+                for(let i=0; i<moves.length; i++) {
+                    draw(moves[i]);
+                }
+            }
+
+            // Draws pieces and moves
+            function draw(obj) {
+                // Pieces
+                if(obj.type == "piece") {
+                    drawPiece(obj);
+                }
+                // Moves
+                else {
+                    ctx.fillStyle = "cyan";
+                    ctx.globalAlpha = 0.87;
+                    ctx.beginPath();
+                    ctx.arc(obj.x+45, obj.y+45, 15, 0, 2*Math.PI);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            function isOnWhiteSquare(piece) { return (piece.squareX / 90) % 2 == (piece.squareY / 90) % 2; } 
+
+            function drawPiece(piece) {
+                var img = new Image();
+                if(piece.name == "K") {
+                    if(piece.color == "white") {
+                        if(piece == currPiece) img.src = "chessPieces/WhitePieces/WhiteKingSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/WhitePieces/WhiteKing.png";
+                        else img.src = "chessPieces/WhitePieces/WhiteKing2.png";
+                    }
+                    else {
+                        if(piece == currPiece) img.src = "chessPieces/BlackPieces/BlackKingSelected.png"
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/BlackPieces/BlackKing.png";
+                        else img.src = "chessPieces/BlackPieces/BlackKing2.png";
+                    }
+                }
+                else if(piece.name == "Q") {
+                    if(piece.color == "white") {
+                        if(piece == currPiece) img.src = "chessPieces/WhitePieces/WhiteQueenSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/WhitePieces/WhiteQueen.png";
+                        else img.src = "chessPieces/WhitePieces/WhiteQueen2.png";
+                    }
+                    else {
+                        if(piece == currPiece) img.src = "chessPieces/BlackPieces/BlackQueenSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/BlackPieces/BlackQueen.png";
+                        else img.src = "chessPieces/BlackPieces/BlackQueen2.png";
+                    }
+                }
+                else if(piece.name == "R") {
+                    if(piece.color == "white") {
+                        if(piece == currPiece) img.src = "chessPieces/WhitePieces/WhiteRookSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/WhitePieces/WhiteRook.png";
+                        else img.src = "chessPieces/WhitePieces/WhiteRook2.png";
+                    }
+                    else {
+                        if(piece == currPiece) img.src = "chessPieces/BlackPieces/BlackRookSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/BlackPieces/BlackRook.png";
+                        else img.src = "chessPieces/BlackPieces/BlackRook2.png";
+                    }
+                }
+                else if(piece.name == "B") {
+                    if(piece.color == "white") {
+                        if(piece == currPiece) img.src = "chessPieces/WhitePieces/WhiteBishopSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/WhitePieces/WhiteBishop.png";
+                        else img.src = "chessPieces/WhitePieces/WhiteBishop2.png";
+                    }
+                    else {
+                        if(piece == currPiece) img.src = "chessPieces/BlackPieces/BlackBishopSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/BlackPieces/BlackBishop.png";
+                        else img.src = "chessPieces/BlackPieces/BlackBishop2.png";
+                    }
+                }
+                else if(piece.name == "N") {
+                    if(piece.color == "white") {
+                        if(piece == currPiece) img.src = "chessPieces/WhitePieces/WhiteKnightSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/WhitePieces/WhiteKnight.png";
+                        else img.src = "chessPieces/WhitePieces/WhiteKnight2.png";
+                    }
+                    else {
+                        if(piece == currPiece) img.src = "chessPieces/BlackPieces/BlackKnightSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/BlackPieces/BlackKnight.png";
+                        else img.src = "chessPieces/BlackPieces/BlackKnight2.png";
+                    }
+                }
+                else {
+                    if(piece.color == "white") {
+                        if(piece == currPiece) img.src = "chessPieces/WhitePieces/WhitePawnSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/WhitePieces/WhitePawn.png";
+                        else img.src = "chessPieces/WhitePieces/WhitePawn2.png";
+                    }
+                    else {
+                        if(piece == currPiece) img.src = "chessPieces/BlackPieces/BlackPawnSelected.png";
+                        else if(isOnWhiteSquare(piece)) img.src = "chessPieces/BlackPieces/BlackPawn.png";
+                        else img.src = "chessPieces/BlackPieces/BlackPawn2.png";
+                    }
+                }
+                // Function that draws the images on the first load
+                img.onload = function() {
+                    if(firstLoad < 32) ctx.drawImage(img, piece.squareX, piece.squareY, 90, 90);
+                    firstLoad++;
+                };
+                ctx.drawImage(img, piece.squareX, piece.squareY, 90, 90);
+            }
+
+            // Checks if there is a piece on the selected square
+            function hasPiece(x, y, color="both") {
+                let found = false;
+                let ind = -1;
+                // Search the whitePieces
+                if(color=="white" || color=="both") {
+                    for(let i=0; !found && i<whitePieces.length; i++) {
+                        let curr = whitePieces[i];
+                        if(curr.squareX == x && curr.squareY == y) {
+                            found = true;
+                            ind = i;
+                        }
+                    }
+                }
+                // Search the blackPieces
+                if(!found && color=="black" || color=="both") {
+                    for(let i=0; !found && i<blackPieces.length; i++) {
+                        let curr = blackPieces[i];
+                        if(curr.squareX == x && curr.squareY == y) {
+                            found = true;
+                            ind = i;
+                        }
+                    }
+                }
+                return new Array(found, ind);
+            }
+
+            function piece(x, y, name, color) {
+                // When placing the letter
+                // Offset the expected coordinates by 15 and 75
+                // i.e. x+15, y+75
+                this.type = "piece";
+                this.x = x;
+                this.y = y;
+                // Get the coordinates of the square that this piece is in
+                this.squareX = x-15;
+                this.squareY = y-75;
+                this.name = name;
+                this.color = color;
+                if(name == "K" || name == "R") {
+                    this.moved = false;
+                }
+            }
+
+            function roundTo90(n) {
+                if(n < 90) return 0;
+                else if(n < 180) return 90;
+                else if(n < 270) return 180;
+                else if(n < 360) return 270;
+                else if(n < 450) return 360;
+                else if(n < 540) return 450;
+                else if(n < 630) return 540;
+                else return 630;
+            }
+
+            function move(x, y, type="move") {
+                this.type = type;
+                this.x = x;
+                this.y = y;
+            }
+
+            function generateRookMoves(piece) {
+                let currKing = (piece.color=="white" ? whiteKing : blackKing);
+                let x = piece.squareX;
+                let y = piece.squareY;
+                // Up
+                for(let currY=y-90; currY>=0 && !hasPiece(piece.squareX, currY, piece.color)[0]; currY-=90) {
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(piece.squareX, currY));
+                    if(hasPiece(piece.squareX, currY, (piece.color=="white" ? "black" : "white"))[0]) currY = -90;
+                }
+                // Down
+                for(let currY=y+90; currY<=630 && !hasPiece(piece.squareX, currY, piece.color)[0]; currY+=90) {
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(piece.squareX, currY));
+                    if(hasPiece(piece.squareX, currY, (piece.color=="white" ? "black" : "white"))[0]) currY = 720;
+                }
+                piece.squareY = y;
+                // Left
+                for(let currX=x-90; currX>=0 && !hasPiece(currX, piece.squareY, piece.color)[0]; currX-=90) {
+                    piece.squareX = currX;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(currX, piece.squareY));
+                    if(hasPiece(currX, piece.squareY, (piece.color=="white" ? "black" : "white"))[0]) currX = -90;
+                }
+                // Right
+                for(let currX=x+90; currX<=630 && !hasPiece(currX, piece.squareY, piece.color)[0]; currX+=90) {
+                    piece.squareX = currX;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(currX, piece.squareY));
+                    if(hasPiece(currX, piece.squareY, (piece.color=="white" ? "black" : "white"))[0]) currX = 720;
+                }
+                piece.squareX = x;
+            }
+
+            function generateBishopMoves(piece) {
+                let currKing = (piece.color=="white" ? whiteKing : blackKing);
+                let x = piece.squareX;
+                let y = piece.squareY;
+                let currX = x;
+                let currY = y;
+                // Top left diagonal
+                currX -= 90;
+                currY -= 90;
+                while(currX>=0 && currY>=0 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(currX, currY));
+                    if(hasPiece(currX, currY, (piece.color=="white" ? "black" : "white"))[0]) currX = -90;
+                    currX -= 90;
+                    currY -= 90;
+                }
+                // Top right diagonal
+                currX = x+90;
+                currY = y-90;
+                while(currX<=630 && currY>=0 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(currX, currY));
+                    if(hasPiece(currX, currY, (piece.color=="white" ? "black" : "white"))[0]) currX = 720;
+                    currX += 90;
+                    currY -= 90;
+                }
+                // Bottom left diagonal
+                currX = x-90;
+                currY = y+90;
+                while(currX>=0 && currY<=630 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(currX, currY));
+                    if(hasPiece(currX, currY, (piece.color=="white" ? "black" : "white"))[0]) currX = -90;
+                    currX -= 90;
+                    currY += 90;
+                }
+                // Bottom right diagonal
+                currX = x+90;
+                currY = y+90;
+                while(currX<=630 && currY<=630 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(currX, currY));
+                    if(hasPiece(currX, currY, (piece.color=="white" ? "black" : "white"))[0]) currX = 720;
+                    currX += 90;
+                    currY += 90;
+                }
+                piece.squareX = x;
+                piece.squareY = y;
+            }
+
+            function generateKnightMoves(piece) {
+                // Check the eight different
+                // spots that the knight can move to
+                // ==M=M==
+                // =M===M=
+                // ===N===
+                // =M===M=
+                // ==M=M==
+                // Top-rightmost to Top-leftmost in clockwise order
+                let x = piece.squareX;
+                let y = piece.squareY;
+                let currKing = (piece.color=="black" ? blackKing : whiteKing);
+                let currX = x-90;
+                let currY = y-180;
+                if(currX>=0 && currY>=0 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) moves.push(new move(currX, currY));
+                }
+                currX = x+90;
+                if(currX<=630 && currY>=0 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) moves.push(new move(currX, currY));
+                }
+                currX = x+180;
+                currY = y-90;
+                if(currX<=630 && currY>=0 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) moves.push(new move(currX, currY));
+                }
+                currY = y+90;
+                if(currX<= 630 && currY<=630 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) moves.push(new move(currX, currY));
+                }
+                currX = x+90;
+                currY = y+180;
+                if(currX<=630 && currY<=630 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) moves.push(new move(currX, currY));
+                }
+                currX = x-90;
+                if(currX>=0 && currY<=630 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) moves.push(new move(currX, currY));
+                }
+                currX = x-180;
+                currY = y+90;
+                if(currX>=0 && currY<=630 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) moves.push(new move(currX, currY));
+                }
+                currY = y-90;
+                if(currX>=0 && currY>=0 && !hasPiece(currX, currY, piece.color)[0]) {
+                    piece.squareX = currX;
+                    piece.squareY = currY;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) moves.push(new move(currX, currY));
+                }
+                piece.squareX = x;
+                piece.squareY = y;
+            }
+
+            function generatePawnMoves(piece) {
+                let start = (piece.color=="white" ? 540 : 90);
+                let step = (piece.color=="white" ? -90 : 90);
+                let steps = ((piece.color=="white" && piece.squareY == 540) || (piece.color=="black" && piece.squareY == 90) ? 2 : 1);
+                let x = piece.squareX;
+                let y = piece.squareY;
+                let currX = x;
+                let currY = y;
+                let currKing = (piece.color=="white" ? whiteKing : blackKing);
+                // Forward steps
+                for(let i=0; i<steps; i++) {
+                    currY += step;
+                    if(hasPiece(currX, currY)[0]) i=steps;
+                    else {
+                        piece.squareX = currX;
+                        piece.squareY = currY;
+                        if(!inCheck(currKing.squareX, currKing.squareY, currKing.color)) {
+                            moves.push(new move(currX, currY));
+                        }
+                        piece.squareX = x;
+                        piece.squareY = y;
+                    }
+                }
+                currY = y;
+                // Left diagonal
+                let oppositePieces = (piece.color == "white" ? blackPieces : whitePieces);
+                if(hasPiece(currX-90, currY+step, (piece.color=="white" ? "black" : "white"))[0] || (enpassant != null &&
+                oppositePieces[hasPiece(currX-90, currY, (piece.color=="white" ? "black" : "white"))[1]] == enpassant)) {
+                    piece.squareX = currX-90;
+                    piece.squareY = currY+step;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(currX-90, currY+step));
+                    piece.squareX = x;
+                    piece.squareY = y;
+                }
+                // Right diagonal
+                if(hasPiece(currX+90, currY+step, (piece.color=="white" ? "black" : "white"))[0] || (enpassant != null &&
+                oppositePieces[hasPiece(currX+90, currY, (piece.color=="white" ? "black" : "white"))[1]] == enpassant)) {
+                    piece.squareX = currX+90;
+                    piece.squareY = currY+step;
+                    if(!inCheck(currKing.squareX, currKing.squareY, currKing.color))
+                        moves.push(new move(currX+90, currY+step));
+                    piece.squareX = x;
+                    piece.squareY = y;
+                }
+            }
+
+            function generateKingMoves(piece) {
+                // Eight different squares that the king can
+                // normally go to, make sure that it is not blocked by
+                // another piece and doesn't put itself in check.
+                // NW
+                let currX = piece.squareX-90;
+                let currY = piece.squareY-90;
+                if(currX>=0 && currY>=0 && !hasPiece(currX, currY, piece.color)[0] && !inCheck(currX, currY, piece.color)) moves.push(new move(currX, currY)); 
+                // N
+                currX = piece.squareX;
+                currY = piece.squareY-90;
+                if(currY>=0 && !hasPiece(currX, currY, piece.color)[0] && !inCheck(currX, currY, piece.color)) moves.push(new move(currX, currY)); 
+                // NE
+                currX = piece.squareX+90;
+                currY = piece.squareY-90;
+                if(currX<=630 && currY>=0 && !hasPiece(currX, currY, piece.color)[0] && !inCheck(currX, currY, piece.color)) moves.push(new move(currX, currY)); 
+                // E
+                currX = piece.squareX+90;
+                currY = piece.squareY;
+                if(currX<=630 && !hasPiece(currX, currY, piece.color)[0] && !inCheck(currX, currY, piece.color)) moves.push(new move(currX, currY)); 
+                // SE
+                currX = piece.squareX+90;
+                currY = piece.squareY+90;
+                if(currX<=630 && currY<=630 && !hasPiece(currX, currY, piece.color)[0] && !inCheck(currX, currY, piece.color)) moves.push(new move(currX, currY)); 
+                // S
+                currX = piece.squareX;
+                currY = piece.squareY+90;
+                if(currY<=630 && !hasPiece(currX, currY, piece.color)[0] && !inCheck(currX, currY, piece.color)) moves.push(new move(currX, currY)); 
+                // SW
+                currX = piece.squareX-90;
+                currY = piece.squareY+90;
+                if(currX>=0 && currY<=630 && !hasPiece(currX, currY, piece.color)[0] && !inCheck(currX, currY, piece.color)) moves.push(new move(currX, currY)); 
+                // W
+                currX = piece.squareX-90;
+                currY = piece.squareY;
+                if(currX>=0 && !hasPiece(currX, currY, piece.color)[0] && !inCheck(currX, currY, piece.color)) moves.push(new move(currX, currY)); 
+                // Castling: Check that the king hasn't moved yet, is on its starting square,
+                // and when it tries to go two spaces to the left or right it doesn't go through
+                // check
+                if(!piece.moved) {
+                    // Short
+                    let samePieces = (piece.color=="white" ? whitePieces : blackPieces);
+                    let temp = hasPiece(piece.squareX+270, piece.squareY, piece.color);
+                    let sndPiece = (temp[1]==-1 ? null : samePieces[temp[1]]);
+                    if(sndPiece!=null && sndPiece.name=="R" && !sndPiece.moved &&
+                        !hasPiece(piece.squareX+90, piece.squareY, piece.color)[0] && !hasPiece(piece.squareX+180, piece.squareY, piece.color)[0] &&
+                        !inCheck(piece.squareX+90, piece.squareY, piece.color) && !inCheck(piece.squareX+180, piece.squareY, piece.color) &&
+                        !inCheck(piece.squareX, piece.squareY, piece.color)) {
+                        moves.push(new move(piece.squareX+180, piece.squareY, "short"));
+                    }
+                    // Long
+                    temp = hasPiece(piece.squareX-360, piece.squareY, piece.color);
+                    sndPiece = (temp[1]==-1 ? null : samePieces[temp[1]]);
+                    if(sndPiece!=null && sndPiece.name=="R" && !sndPiece.moved &&
+                        // Make sure there are no pieces in the way
+                        !hasPiece(piece.squareX-90, piece.squareY, piece.color)[0] && !hasPiece(piece.squareX-180, piece.squareY, piece.color)[0] && 
+                        !hasPiece(piece.squareX-270, piece.squareY, piece.color)[0] && !inCheck(piece.squareX-90, piece.squareY, piece.color) && !inCheck(piece.squareX-180, piece.squareY, piece.color) &&
+                        !inCheck(piece.squareX, piece.squareY, piece.color)) {
+                            moves.push(new move(piece.squareX-180, piece.squareY, "long"));
+                    }
+                }
+            }
+
+            function inCheck(x, y, kingColor) {
+                let oppositeColor = (kingColor == "black" ? "white" : "black");
+                let oppositePieces = (kingColor == "black" ? whitePieces : blackPieces);
+                let currKing = (kingColor=="white" ? whiteKing : blackKing);
+                // Draw straight lines from the given position
+                // to see if it hits an enemy Rook, Queen, or
+                // King (within the first step)
+                for(let currY=y-90; currY>=0 && (currY==currKing.squareY || !hasPiece(x, currY, kingColor)[0]); currY-=90) {
+                    let temp = hasPiece(x, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(currY==y-90 && piece != null && piece.name=="K") return true;
+                    if(piece != null && (piece.name=="Q" || piece.name=="R")) return true;
+                    if(piece != null) currY = -90;
+                }
+                for(let currY=y+90; currY<=630 && (currY==currKing.squareY || !hasPiece(x, currY, kingColor)[0]); currY+=90) {
+                    let temp = hasPiece(x, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(currY==y+90 && piece != null && piece.name=="K") return true;
+                    if(piece != null && (piece.name=="Q" || piece.name=="R")) return true;
+                    if(piece != null) currY = 720;
+                }
+                for(let currX=x-90; currX>=0 && (currX==currKing.squareX || !hasPiece(currX, y, kingColor)[0]); currX-=90) {
+                    let temp = hasPiece(currX, y, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(currX==x-90 && piece != null && piece.name=="K") return true;
+                    if(piece != null && (piece.name=="Q" || piece.name=="R")) return true;
+                    if(piece != null) currX = -90;
+                }
+                for(let currX=x+90; currX<=630 && (currX==currKing.squareX || !hasPiece(currX, y, kingColor)[0]); currX+=90) {
+                    let temp = hasPiece(currX, y, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(currX==x+90 && piece != null && piece.name=="K") return true;
+                    if(piece != null && (piece.name=="Q" || piece.name=="R")) return true;
+                    if(piece != null) currX = 720;
+                }
+                // Draw diagonal lines from the given position
+                // to see if it hits an enemy bishop, Queen, 
+                // or Pawn (within the first step), or King (within the first step)
+                // Top right
+                let currX = x+90;
+                let currY = y-90;
+                while(currX<=630 && currY>=0 && ((currX==currKing.squareX && currY==currKing.squareY) || !hasPiece(currX, currY, kingColor)[0])) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(currX==x+90 && currY==y-90 && piece != null && (piece.name=="K" || (kingColor=="white" && piece.name=="P"))) return true;
+                    if(piece != null && (piece.name=="Q" || piece.name=="B")) return true;
+                    if(piece != null) currY = -90;
+                    currX += 90;
+                    currY -= 90;
+                }
+                // Bottom right
+                currX = x+90;
+                currY = y+90;
+                while(currX<=630 && currY<=630 && ((currX==currKing.squareX && currY==currKing.squareY) || !hasPiece(currX, currY, kingColor)[0])) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(currX==x+90 && currY==y+90 && piece != null && (piece.name=="K" || (kingColor=="black" && piece.name=="P"))) return true;
+                    if(piece != null && (piece.name=="Q" || piece.name=="B")) return true;
+                    if(piece != null) currY = 720;
+                    currX += 90;
+                    currY += 90;
+                }
+                // Bottom left
+                currX = x-90;
+                currY = y+90;
+                while(currX>=0 && currY<=630 && ((currX==currKing.squareX && currY==currKing.squareY) || !hasPiece(currX, currY, kingColor)[0])) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(currX==x-90 && currY==y+90 && piece != null && (piece.name=="K" || (kingColor=="black" && piece.name=="P"))) return true;
+                    if(piece != null && (piece.name=="Q" || piece.name=="B")) return true;
+                    if(piece != null) currY = 720;
+                    currX -= 90;
+                    currY += 90;
+                }
+                // Top left
+                currX = x-90;
+                currY = y-90;
+                while(currX>=0 && currY>=0 && ((currX==currKing.squareX && currY==currKing.squareY) || !hasPiece(currX, currY, kingColor)[0])) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(currX==x-90 && currY==y-90 && piece != null && (piece.name=="K" || (kingColor=="white" && piece.name=="P"))) return true;
+                    if(piece != null && (piece.name=="Q" || piece.name=="B")) return true;
+                    if(piece != null) currY = -90;
+                    currX -= 90;
+                    currY -= 90;
+                }
+                // Check all positions where knights can attack the king
+                currX = x-90;
+                currY = y-180;
+                if(currX>=0 && currY>=0 && !hasPiece(currX, currY, kingColor)[0]) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(piece != null && piece.name=="N") return true;
+                }
+                currX = x+90
+                if(currX<=630 && currY>=0 && !hasPiece(currX, currY, kingColor)[0]) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(piece != null && piece.name=="N") return true;
+                }
+                currX = x+180;
+                currY = y-90;
+                if(currX<=630 && currY>=0 && !hasPiece(currX, currY, kingColor)[0]) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(piece != null && piece.name=="N") return true;
+                }
+                currY = y+90;
+                if(currX<= 630 && currY<=630 && !hasPiece(currX, currY, kingColor)[0]) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(piece != null && piece.name=="N") return true;
+                }
+                currX = x+90;
+                currY = y+180;
+                if(currX<=630 && currY<=630 && !hasPiece(currX, currY, kingColor)[0]) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(piece != null && piece.name=="N") return true;
+                }
+                currX = x-90;
+                if(currX>=0 && currY<=630 && !hasPiece(currX, currY, kingColor)[0]) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(piece != null && piece.name=="N") return true;
+                }
+                currX = x-180;
+                currY = y+90;
+                if(currX>=0 && currY<=630 && !hasPiece(currX, currY, kingColor)[0]) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(piece != null && piece.name=="N") return true;
+                }
+                currY = y-90;
+                if(currX>=0 && currY>=0 && !hasPiece(currX, currY, kingColor)[0]) {
+                    let temp = hasPiece(currX, currY, oppositeColor);
+                    let piece = (temp[1]==-1 ? null : oppositePieces[temp[1]]);
+                    if(piece != null && piece.name=="N") return true;
+                }
+                return false;
+            }
+
+            function inCheckMate(king) {
+                let currPieces = (king.color=="white" ? whitePieces : blackPieces);
+                for(let i=0; i<currPieces.length && moves.length==0; i++) {
+                    generateMoves(currPieces[i]);
+                }
+                return moves.length==0;
+            }
+
+            function generateMoves(piece) {
+                // King
+                if(piece.name == 'K') {
+                    generateKingMoves(piece);
+                }
+                // Queen
+                else if(piece.name == 'Q') {
+                    generateRookMoves(piece);
+                    generateBishopMoves(piece);
+                }
+                // Rook
+                else if(piece.name == 'R') {
+                    generateRookMoves(piece);
+                }
+                // Knight
+                else if(piece.name == 'N') {
+                    generateKnightMoves(piece);
+                }
+                // Bishop
+                else if(piece.name == 'B') {
+                    generateBishopMoves(piece);
+                }
+                // Pawn
+                else {
+                    generatePawnMoves(piece);
+                }
+            }
+
+            // function printClick(x, y) {
+            //     let rect = myGameArea.canvas.getBoundingClientRect();
+            //     x = roundTo90(x - rect.left-20);
+            //     y = roundTo90(y - rect.top-20);
+            //     console.log('x coor: ' + x);
+            //     console.log('y coor: ' + y);
+            //     console.log();
+            // }
+
+            function promote(name) {
+                if(name == "Queen") {
+                    currPawn.name = "Q";
+                }
+                else if(name == "Rook") {
+                    currPawn.name = "R";
+                }
+                else if(name == "Bishop") {
+                    currPawn.name = "B";
+                }
+                // Knight
+                else {
+                    currPawn.name = "N";
+                }
+                currPawn = null;
+                promotion = false;
+                // Deletes the buttons and text
+                let buttons = document.getElementsByTagName("button");
+                let size = buttons.length;
+                for(let i=0; i<size; i++) {
+                    buttons[0].parentNode.removeChild(buttons[0]);
+                }
+                let text = document.getElementsByTagName("p");
+                text[0].parentNode.removeChild(text[0]);
+                // Determines whether the enemy king is in check and checkmate
+                let enemyKing = (!whiteTurn ? blackKing : whiteKing);
+                mate = inCheckMate(enemyKing);
+                moves = new Array;
+                myGameArea.clear();
+                drawBoard();
+                if(inCheck(enemyKing.squareX, enemyKing.squareY, enemyKing.color)) {
+                    var img = new Image();
+                    img.src = (enemyKing.color == "white" ? "chessPieces/WhitePieces/WhiteKingCheck.png" : "chessPieces/BlackPieces/BlackKingCheck.png");
+                    ctx.drawImage(img, enemyKing.squareX, enemyKing.squareY, 90, 90);
+                }
+                if(mate) {
+                    if(inCheck(enemyKing.squareX, enemyKing.squareY, enemyKing.color)) alert((whiteTurn ? "Black " : "White ") + "is victorious!");
+                    else alert("Stalemate!");
+                }
+            }
+
+            function click(x, y) {
+                // If a pawn is being promoted, halt this function
+                if(promotion) return;
+                let rect = myGameArea.canvas.getBoundingClientRect();
+                x = roundTo90(x - rect.left-20);
+                y = roundTo90(y - rect.top-20);
+                var mate;
+                // Look for the move, only if a piece is currently selected
+                if(currPiece != null) {
+                    // Look through the moves array
+                    // and move the piece to the selected
+                    // square if available
+                    let move = null;
+                    for(let i=0; move==null && i<moves.length; i++) {
+                        if(moves[i].x == x && moves[i].y == y) move = moves[i];
+                    }
+                    if(move != null) {
+                        // Check if an enpassant was performed
+                        if(currPiece.name == "P" && x-currPiece.squareX != 0) {
+                            if(currPiece.color == "white") {
+                                if(!hasPiece(move.x, move.y, "black")[0]) {
+                                    blackPieces.splice(hasPiece(move.x, move.y+90, "black")[1], 1);
+                                }
+                            }
+                            else {
+                                if(!hasPiece(move.x, move.y, "white")[0]) {
+                                    whitePieces.splice(hasPiece(move.x, move.y-90, "white")[1], 1);
+                                }
+                            }
+                        }
+                        // Check if a pawn just moved two squares
+                        if(currPiece.name == "P" && Math.abs(currPiece.squareY - y) == 180) {
+                            enpassant = currPiece;
+                        }
+                        else enpassant = null;
+                        currPiece.x = x+15;
+                        currPiece.y = y+75;
+                        currPiece.squareX = x;
+                        currPiece.squareY = y;
+                        // Updates rook or king moved flag if possible
+                        if(currPiece.name == "K" || currPiece.name == "R") currPiece.moved = true;
+                        // Moves the rook to the appropriate place if a castle was performed
+                        if(move.type == "short") {
+                            let currPieces = (currPiece.color=="white" ? whitePieces : blackPieces);
+                            let rook = currPieces[hasPiece(x+90, y, currPiece.color)[1]];
+                            rook.x = currPiece.x-90;
+                            rook.y = currPiece.y;
+                            rook.squareX = x-90;
+                            rook.squareY = y;
+                        }
+                        if(move.type == "long") {
+                            let currPieces = (currPiece.color=="white" ? whitePieces : blackPieces);
+                            let rook = currPieces[hasPiece(x-180, y, currPiece.color)[1]];
+                            rook.x = currPiece.x+90;
+                            rook.y = currPiece.y;
+                            rook.squareX = x+90;
+                            rook.squareY = y;
+                        }
+                        // Promote the pawn if possible
+                        if(currPiece.name == "P") {
+                            if((currPiece.color == "white" && currPiece.squareY == 0) ||
+                            (currPiece.color == "black" && currPiece.squareY == 630)) {
+                                var pageBody = document.getElementsByTagName("body")[0];
+                                var para = document.createElement("p");
+                                para.innerHTML = "<h1>Congratulations, you've promoted a pawn!</h1>"
+                                var button0 = document.createElement("button");
+                                button0.innerHTML = "Queen";
+                                button0.onclick = function() { promote("Queen") };
+                                button0.style = "font-size:120%;padding:10px";
+                                para.appendChild(button0);
+                                var button1 = document.createElement("button");
+                                button1.innerHTML = "Rook";
+                                button1.onclick = function() { promote("Rook") };
+                                button1.style = "font-size:120%;padding:10px";
+                                para.appendChild(button1);
+                                var button2 = document.createElement("button");
+                                button2.innerHTML = "Bishop";
+                                button2.onclick = function() { promote("Bishop") };
+                                button2.style = "font-size:120%;padding:10px";
+                                para.appendChild(button2);
+                                var button3 = document.createElement("button");
+                                button3.innerHTML = "Knight";
+                                button3.onclick = function() { promote("Knight") };
+                                button3.style = "font-size:120%;padding:10px";
+                                para.appendChild(button3);
+                                pageBody.appendChild(para);
+                                // Backend stuff
+                                promotion = true;
+                                currPawn = currPiece;
+                            }
+                        }
+                        // Captures the piece located at the square if possible
+                        let temp = hasPiece(move.x, move.y, (currPiece.color=="black" ? "white" : "black"));
+                        if(temp[0]) {
+                            if(currPiece.color == "white") blackPieces.splice(temp[1],1);
+                            else whitePieces.splice(temp[1], 1);
+                        }
+                        whiteTurn = !whiteTurn;
+                        // Determines whether the enemy king is in check and checkmate
+                        let enemyKing = (currPiece.color=="white" ? blackKing : whiteKing);
+                        moves = new Array;
+                        mate = inCheckMate(enemyKing);
+                        moves = new Array;
+                    }
+                    // Return from the function
+                    moves = new Array;
+                    currPiece = null;
+                    myGameArea.clear();
+                    drawBoard();
+                    let currKing = (whiteTurn ? whiteKing : blackKing);
+                    if(inCheck(currKing.squareX, currKing.squareY, currKing.color)) {
+                        var img = new Image();
+                        img.src = (currKing.color == "white" ? "chessPieces/WhitePieces/WhiteKingCheck.png" : "chessPieces/BlackPieces/BlackKingCheck.png");
+                        ctx.drawImage(img, currKing.squareX, currKing.squareY, 90, 90);
+                    }
+                    if(mate) {
+                        if(inCheck(currKing.squareX, currKing.squareY, currKing.color)) alert("Checkmate, " + (whiteTurn ? "black " : "white ") + "is victorious!");
+                        else alert("Stalemate!");
+                    }
+                    if(blackPieces.length == 1 && whitePieces.length == 1) alert("Stalemate!");
+                    return;
+                }
+                // Look for the piece
+                for(let i=0; currPiece == null && i<whitePieces.length; i++) {
+                    let curr = whitePieces[i];
+                    if(whiteTurn && curr.squareX == x && curr.squareY == y) {
+                        currPiece = curr;
+                    }
+                }
+                for(let i=0; currPiece == null && i<blackPieces.length; i++) {
+                    let curr = blackPieces[i];
+                    if(!whiteTurn && curr.squareX == x && curr.squareY == y) {
+                        currPiece = curr;
+                    }
+                }
+                // If a piece was found, generate the moves array
+                if(currPiece != null) {
+                    generateMoves(currPiece);
+                    if(moves.length==0) currPiece=null;
+                }
+                // Update the game board
+                myGameArea.clear();
+                drawBoard();
+                let currKing = (whiteTurn ? whiteKing : blackKing);
+                if(inCheck(currKing.squareX, currKing.squareY, currKing.color)) {
+                    var img = new Image();
+                    img.src = (currKing.color == "white" ? "chessPieces/WhitePieces/WhiteKingCheck.png" : "chessPieces/BlackPieces/BlackKingCheck.png");
+                    ctx.drawImage(img, currKing.squareX, currKing.squareY, 90, 90);
+                }
+            }
+            myGameArea.canvas.addEventListener("click", function(){ click(event.clientX,event.clientY) });
+            // myGameArea.canvas.addEventListener("click", function(){ printClick(event.clientX,event.clientY) });
+        </script>
+        <!-- <p style="text-align: center;"> Score: 0 </p> -->
+        <!-- <p style="text-align: center;"> </p> -->
+    </body>
+
+</html>
