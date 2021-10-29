@@ -16,8 +16,18 @@
             </style>
     </head>
 
-    <body onload="startGame()">
+    <!-- <body onload="startGame()"> -->
+    <body>
         <script>
+            const ws = new WebSocket("ws://localhost:8000");
+            ws.addEventListener("open", () => {
+                myGameArea.start();
+                ws.addEventListener("message", ( {data} ) => {
+                    myColor = data;
+                    console.log(myColor);
+                });
+            });
+
             // Pieces
             var whitePieces = new Array;
             var blackPieces = new Array;
@@ -43,6 +53,8 @@
             var gameStates = {};
             // Flag to determine when the game is over
             var gameOver = false;
+            // Flag to determine what color the current player is
+            var myColor = "";
 
             function startGame() {
                 myGameArea.start();
