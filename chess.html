@@ -16,18 +16,38 @@
             </style>
     </head>
 
-    <!-- <body onload="startGame()"> -->
-    <body>
+    <body onload="startGame()">
+    <!-- <body onload=startGame()> -->
         <script>
             const ws = new WebSocket("ws://localhost:8000");
             ws.addEventListener("open", () => {
-                myGameArea.start();
+                // startGame();
                 ws.addEventListener("message", ( {data} ) => {
-                    myColor = data;
-                    console.log(myColor);
+                    // New connection has been made
+                    if(data == "white" || data == "black") {
+                        myColor = data;
+                        console.log(myColor);
+                        if(data == "black") p.innerHTML = "<h1>Waiting for opponent...</h1>";
+                    }
+                    // Opponent has made a move
+                    else {
+                        if(data[0] == 'K') {
+                            var vInd = 0;
+                            for(; data[vInd] != 'V'; vInd++) { }
+                            var hash = Number(data.slice(1, vInd));
+                            var freq = Number(data.slice(vInd+1, data.length));
+                            gameStates[hash] = freq;
+                            if(freq >= 3) {
+                                alert("Stalemate!");
+                                gameOver = true;
+                            }
+                        }
+                        else {
+                            makeOpponentMove(data);
+                        }
+                    }
                 });
             });
-
             // Pieces
             var whitePieces = new Array;
             var blackPieces = new Array;
@@ -246,16 +266,20 @@
 
             function isOnWhiteSquare(piece) { return (piece.squareX / 90) % 2 == (piece.squareY / 90) % 2; } 
 
+            // CHECK IF DRAWING THE IMAGE DIRECTLY FROM
+            // THE ARRAY DOES ANYTHING
             function drawPiece(piece) {
                 var img = new Image();
                 if(piece.name == "K") {
                     if(piece.color == "white") {
-                        if(piece == currPiece) img.src = "chessPieces/WhitePieces/WhiteKingSelected.png";
+                        if(inCheck(piece.squareX, piece.squareY, "white")) img.src = "chessPieces/WhitePieces/WhiteKingCheck.png";
+                        else if(piece == currPiece) img.src = "chessPieces/WhitePieces/WhiteKingSelected.png";
                         else if(isOnWhiteSquare(piece)) img.src = "chessPieces/WhitePieces/WhiteKing.png";
                         else img.src = "chessPieces/WhitePieces/WhiteKing2.png";
                     }
                     else {
-                        if(piece == currPiece) img.src = "chessPieces/BlackPieces/BlackKingSelected.png"
+                        if(inCheck(piece.squareX, piece.squareY, "black")) img.src = "chessPieces/BlackPieces/BlackKingCheck.png";
+                        else if(piece == currPiece) img.src = "chessPieces/BlackPieces/BlackKingSelected.png"
                         else if(isOnWhiteSquare(piece)) img.src = "chessPieces/BlackPieces/BlackKing.png";
                         else img.src = "chessPieces/BlackPieces/BlackKing2.png";
                     }
@@ -322,10 +346,17 @@
                 }
                 // Function that draws the images on the first load
                 img.onload = function() {
-                    if(firstLoad < 32) ctx.drawImage(img, piece.squareX, piece.squareY, 90, 90);
-                    firstLoad++;
+                    ctx.drawImage(img, piece.squareX, piece.squareY, 90, 90);
+                    // Look through the moves array to see if a move is 
+                    // covered up by an enemy piece
+                    for(let i=0; i<moves.length; i++) {
+                        let mv = moves[i];
+                        if(piece.squareX == mv.x && piece.squareY == mv.y) {
+                            draw(new move(piece.squareX, piece.squareY));
+                        }
+                    }
                 };
-                ctx.drawImage(img, piece.squareX, piece.squareY, 90, 90);
+                ctx.drawImage(img, piece.squareX, piece.squareY, 90, 90);   
             }
 
             // Checks if there is a piece on the selected square
@@ -862,7 +893,6 @@
                 else {
                     currPawn.name = "N";
                 }
-                currPawn = null;
                 promotion = false;
                 // Deletes the buttons and text
                 let buttons = document.getElementsByTagName("button");
@@ -871,13 +901,23 @@
                     buttons[0].parentNode.removeChild(buttons[0]);
                 }
                 let text = document.getElementsByTagName("p");
-                text[0].parentNode.removeChild(text[0]);
+                text[1].parentNode.removeChild(text[1]);
                 // Determines whether the enemy king is in check and checkmate
                 let enemyKing = (!whiteTurn ? blackKing : whiteKing);
                 mate = inCheckMate(enemyKing);
                 moves = new Array;
                 myGameArea.clear();
                 drawBoard();
+                p.innerHTML = "<h1>Waiting for opponent...</h1>";
+                // Send flag to the server to tell which
+                // pawn to upgrade
+                var moveStr = "P";
+                moveStr += (currPawn.color == "white" ? 'W' : 'B');
+                moveStr += currPawn.name;
+                moveStr += currPawn.squareX / 90;
+                moveStr += currPawn.squareY / 90;
+                ws.send(moveStr);
+                // currPawn = null;
                 if(inCheck(enemyKing.squareX, enemyKing.squareY, enemyKing.color)) {
                     var img = new Image();
                     img.src = (enemyKing.color == "white" ? "chessPieces/WhitePieces/WhiteKingCheck.png" : "chessPieces/BlackPieces/BlackKingCheck.png");
@@ -932,16 +972,121 @@
                 return hashVal;
             }
 
+            function myTurn() {
+                if(whiteTurn) return myColor == "white";
+                return myColor == "black";
+            }
+
+            function makeOpponentMove(moveStr) {
+                // Opponent is promoting a piece
+                if(moveStr[0] == 'P' ) {
+                    var pieces = (moveStr[1] == 'W' ? whitePieces : blackPieces);
+                    let pawnX = (moveStr.charCodeAt(3)-48)*90;
+                    let pawnY = (moveStr.charCodeAt(4)-48)*90;
+                    var pawnInd = hasPiece(pawnX, pawnY, (moveStr[1] == 'W' ? "white" : "black" ))[1];
+                    let pawn = pieces[pawnInd];
+                    pawn.name = moveStr[2];
+                    moves = new Array;
+                    myGameArea.clear();
+                    drawBoard();
+                    let currKing = (whiteTurn ? whiteKing : blackKing);
+                    if(inCheckMate(currKing)) {
+                        gameOver = true;
+                        if(inCheck(currKing.squareX, currKing.squareY, currKing.color)) alert("Checkmate, " + (whiteTurn ? "black " : "white ") + "is victorious!");
+                        else alert("Stalemate!");
+                        p.innerHTML = "";
+                    }
+                    if(blackPieces.length == 1 && whitePieces.length == 1) {
+                        gameOver = true;
+                        alert("Stalemate!");
+                        p.innerHTML = "";
+                    }
+                    moves = new Array;
+                    return;
+                }
+                // Format: [Move type (E, C, P, M)][W|B][Piece name][startX][startY][endX][endY]
+                var startX = (moveStr.charCodeAt(3)-48)*90;
+                var startY = (moveStr.charCodeAt(4)-48)*90;
+                var endX = (moveStr.charCodeAt(5)-48)*90;
+                var endY = (moveStr.charCodeAt(6)-48)*90;
+                var currPieceArr = (moveStr[1] == 'W' ? whitePieces : blackPieces);
+                var oppPieceArr = (moveStr[1] == 'B' ? whitePieces : blackPieces);
+                var movedPiece = currPieceArr[hasPiece(startX, startY, (moveStr[1] == 'W' ? "white" : "black"))[1]];                    
+                movedPiece.squareX = endX;
+                movedPiece.squareY = endY;
+                movedPiece.x = endX+15;
+                movedPiece.y = endY+75;
+                // Set the moved flag for king or rook to true
+                if(movedPiece.name == "K") {
+                    movedPiece.moved = true;
+                    if(movedPiece.color == "white") whiteKing = movedPiece;
+                    else blackKing = movedPiece;
+                }
+                if(movedPiece.name == "R") {
+                    movedPiece.moved = true;
+                }
+                if(moveStr[0] == 'E') {
+                    // Capture the pawn that moved two squares
+                    oppPieceArr.splice(hasPiece(endX, endY+90, (moveStr[1] == "B" ? "white" : "black"))[1], 1);
+                }
+                else if(moveStr[0] == 'C') {
+                    oppPieceArr.splice(hasPiece(endX, endY, (moveStr[1] == "B" ? "white" : "black"))[1], 1);
+                }
+                else {
+                    // If a pawn moved two spaces up
+                    if(movedPiece.name == "P" && Math.abs(endY-startY) == 180) enpassant = movedPiece;
+                    // If a king castled short or long, move the rook to the appropriate spot
+                    if(movedPiece.name == "K" && Math.abs(endX-startX) == 180) {
+                        // Short
+                        if(endX-startX == 180) {
+                            let rook = currPieceArr[hasPiece(endX+90, endY, movedPiece.color)[1]];
+                            rook.squareX = movedPiece.squareX-90;
+                            rook.x = rook.squareX+15;
+                        }
+                        // Long
+                        else {
+                            let rook = currPieceArr[hasPiece(endX-180, endY, movedPiece.color)[1]];
+                            rook.squareX = movedPiece.squareX+90;
+                            rook.x = rook.squareX+15;
+                        }
+                    }
+                }
+                // Update board
+                whiteTurn = !whiteTurn;
+                moves = new Array;
+                currPiece = null;
+                myGameArea.clear();
+                drawBoard();
+                let currKing = (whiteTurn ? whiteKing : blackKing);
+                if(inCheckMate(currKing)) {
+                    gameOver = true;
+                    if(inCheck(currKing.squareX, currKing.squareY, currKing.color)) alert("Checkmate, " + (whiteTurn ? "black " : "white ") + "is victorious!");
+                    else alert("Stalemate!");
+                    p.innerHTML = "";
+                }
+                if(blackPieces.length == 1 && whitePieces.length == 1) {
+                    gameOver = true;
+                    alert("Stalemate!");
+                    p.innerHTML = "";
+                }
+                p.innerHTML = "";
+                moves = new Array;
+            }
+
             function click(x, y) {
                 // If a pawn is being promoted or the game is over, halt this function
-                if(promotion || gameOver) return;
+                if(promotion || gameOver || !myTurn()) return;
+                // if(promotion || gameOver) return;
                 let rect = myGameArea.canvas.getBoundingClientRect();
                 x = roundTo90(x - rect.left-20);
                 y = roundTo90(y - rect.top-20);
-                var mate;
-                var threeFold;
                 // Look for the move, only if a piece is currently selected
                 if(currPiece != null) {
+                    var mate;
+                    var threeFold;
+                    var startX = currPiece.squareX/90;
+                    var startY = currPiece.squareY/90;
+                    var moveType = 'M';
                     // Look through the moves array
                     // and move the piece to the selected
                     // square if available
@@ -952,6 +1097,7 @@
                     if(move != null) {
                         // Check if an enpassant was performed
                         if(currPiece.name == "P" && x-currPiece.squareX != 0) {
+                            moveType = 'E';
                             if(currPiece.color == "white") {
                                 if(!hasPiece(move.x, move.y, "black")[0]) {
                                     blackPieces.splice(hasPiece(move.x, move.y+90, "black")[1], 1);
@@ -1027,6 +1173,7 @@
                         // Captures the piece located at the square if possible
                         let temp = hasPiece(move.x, move.y, (currPiece.color=="black" ? "white" : "black"));
                         if(temp[0]) {
+                            moveType = "C";
                             if(currPiece.color == "white") blackPieces.splice(temp[1],1);
                             else whitePieces.splice(temp[1], 1);
                         }
@@ -1036,9 +1183,22 @@
                         moves = new Array;
                         mate = inCheckMate(enemyKing);
                         // Check whether three-fold repetition has occurred
-                        let currState = updateState();
+                        var currState = updateState();
                         threeFold = gameStates[currState] >= 3;
                         moves = new Array;
+                        // Send a hash of the new gamestate to all other clients
+                        ws.send("K"+currState+"V"+gameStates[currState]);
+                        // Send the move to all other clients (Remember to complement whiteTurn when the message is received)
+                        // Format: [Move type (E, C, M)][W|B][Piece name][startX][startY][endX][endY]
+                        let moveStr = "" + moveType;
+                        moveStr += currPiece.color == "white" ? 'W' : 'B';
+                        moveStr += currPiece.name;
+                        moveStr += startX;
+                        moveStr += startY;
+                        moveStr += currPiece.squareX/90;
+                        moveStr += currPiece.squareY/90;
+                        ws.send(moveStr);
+                        if(!promotion) p.innerHTML = "<h1>Waiting for opponent...</h1>";
                     }
                     // Return from the function
                     moves = new Array;
@@ -1046,22 +1206,20 @@
                     myGameArea.clear();
                     drawBoard();
                     let currKing = (whiteTurn ? whiteKing : blackKing);
-                    if(inCheck(currKing.squareX, currKing.squareY, currKing.color)) {
-                        var img = new Image();
-                        img.src = (currKing.color == "white" ? "chessPieces/WhitePieces/WhiteKingCheck.png" : "chessPieces/BlackPieces/BlackKingCheck.png");
-                        ctx.drawImage(img, currKing.squareX, currKing.squareY, 90, 90);
-                    }
                     if(mate) {
                         gameOver = true;
                         if(inCheck(currKing.squareX, currKing.squareY, currKing.color)) alert("Checkmate, " + (whiteTurn ? "black " : "white ") + "is victorious!");
                         else alert("Stalemate!");
+                        p.innerHTML = "";
                     }
                     if(threeFold || (blackPieces.length == 1 && whitePieces.length == 1)) {
                         gameOver = true;
                         alert("Stalemate!");
+                        p.innerHTML = "";
                     }
                     return;
                 }
+                // A piece hasn't been selected, so
                 // Look for the piece
                 for(let i=0; currPiece == null && i<whitePieces.length; i++) {
                     let curr = whitePieces[i];
@@ -1090,7 +1248,12 @@
                     ctx.drawImage(img, currKing.squareX, currKing.squareY, 90, 90);
                 }
             }
+            
             myGameArea.canvas.addEventListener("click", function(){ click(event.clientX,event.clientY) });
+            var p = document.createElement("p");
+            document.body.appendChild(p);
+            p.innerHTML = "";
+            p.style = "text-align:center;";
             // myGameArea.canvas.addEventListener("click", function(){ printClick(event.clientX,event.clientY) });
         </script>
         <!-- <p style="text-align: center;"> Score: 0 </p> -->
