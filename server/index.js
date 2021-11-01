@@ -13,12 +13,14 @@ wss.on("connection", ws => {
     // Second client has connected, they will be black
     else if(wss.clients.size == 2) ws.send("black");
     // More than two clients are connected, so don't assign the client a piece color
-    else {  }
+    else { }
+
 
     ws.on("message", data => {
         console.log(`Client has sent us: ${data}`);
-        const str = new String(data);
-        ws.send(str.toUpperCase());
+        wss.clients.forEach(function each(client) {
+            if(ws != client && client.readyState === WebSocket.OPEN) client.send(`${data}`);
+        });
     });
 
     ws.on("close", () => {
